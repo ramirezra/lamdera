@@ -1,8 +1,10 @@
 module Backend exposing (..)
 
 import Html
-import Lamdera exposing (ClientId, SessionId)
+import Lamdera exposing (ClientId, SessionId, broadcast, sendToFrontend)
+import Set exposing (Set)
 import Types exposing (..)
+import Lamdera exposing (sendToFrontend)
 
 
 type alias Model =
@@ -14,13 +16,13 @@ app =
         { init = init
         , update = update
         , updateFromFrontend = updateFromFrontend
-        , subscriptions = \m -> Sub.none
+        , subscriptions = subscriptions
         }
 
 
 init : ( Model, Cmd BackendMsg )
 init =
-    ( { message = "Hello!" }
+    ( { counter = 0 }
     , Cmd.none
     )
 
@@ -28,6 +30,8 @@ init =
 update : BackendMsg -> Model -> ( Model, Cmd BackendMsg )
 update msg model =
     case msg of
+        ClientConnected sessionId clientId ->
+            ( model, sendToFrontend clientId <| CounterNewValue model.counter clientId)
         NoOpBackendMsg ->
             ( model, Cmd.none )
 
@@ -35,5 +39,21 @@ update msg model =
 updateFromFrontend : SessionId -> ClientId -> ToBackend -> Model -> ( Model, Cmd BackendMsg )
 updateFromFrontend sessionId clientId msg model =
     case msg of
+        CounterIncremented ->
+            let 
+                newCounter = model.counter + 1 
+            in 
+                ({model| counter = newCounter }, broadcast (CounterNewValue newCounter clientId))
+        CounterDecremented ->
+            let 
+                newCounter = model.counter - 1 
+            in 
+                ({model| counter = newCounter }, broadcast (CounterNewValue newCounter clientId))
+
         NoOpToBackend ->
             ( model, Cmd.none )
+
+
+subscriptions model =
+    Sub.batch 
+        [ Lamdera.onConnect ClientConnected ]

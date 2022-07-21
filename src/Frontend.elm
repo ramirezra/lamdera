@@ -1,9 +1,8 @@
-module Frontend exposing (..)
+module Frontend exposing (Model, app)
 
-import Browser exposing (UrlRequest(..))
-import Browser.Navigation as Nav
 import Html
 import Html.Attributes as Attr
+import Html.Events
 import Lamdera
 import Types exposing (..)
 import Url
@@ -15,42 +14,34 @@ type alias Model =
 
 app =
     Lamdera.frontend
-        { init = init
-        , onUrlRequest = UrlClicked
-        , onUrlChange = UrlChanged
+        { init = \_ _ -> init
+        
         , update = update
         , updateFromBackend = updateFromBackend
-        , subscriptions = \m -> Sub.none
-        , view = view
+        , subscriptions = \_ -> Sub.none
+        , view = \model -> 
+            { title = "v1"
+            , body = [ view model]
+            }
+        , onUrlRequest = \_ -> NoOpFrontendMsg
+        , onUrlChange = \_ -> NoOpFrontendMsg
         }
 
 
-init : Url.Url -> Nav.Key -> ( Model, Cmd FrontendMsg )
-init url key =
-    ( { key = key
-      , message = "Welcome to Lamdera! You're looking at the auto-generated base implementation. Check out src/Frontend.elm to start coding!"
-      }
-    , Cmd.none
-    )
+init : ( Model, Cmd FrontendMsg )
+init =
+    ( { counter = 0, clientId = ""}, Cmd.none)
+
 
 
 update : FrontendMsg -> Model -> ( Model, Cmd FrontendMsg )
 update msg model =
     case msg of
-        UrlClicked urlRequest ->
-            case urlRequest of
-                Internal url ->
-                    ( model
-                    , Nav.pushUrl model.key (Url.toString url)
-                    )
-
-                External url ->
-                    ( model
-                    , Nav.load url
-                    )
-
-        UrlChanged url ->
-            ( model, Cmd.none )
+        Increment ->
+            ( {model | counter = model.counter + 1 }, Lamdera.sendToBackend CounterIncremented)
+        
+        Decrement ->
+            ( {model | counter = model.counter + 1}, Lamdera.sendToBackend CounterDecremented)
 
         NoOpFrontendMsg ->
             ( model, Cmd.none )
@@ -59,21 +50,15 @@ update msg model =
 updateFromBackend : ToFrontend -> Model -> ( Model, Cmd FrontendMsg )
 updateFromBackend msg model =
     case msg of
-        NoOpToFrontend ->
-            ( model, Cmd.none )
+        CounterNewValue newValue clientId ->
+            ( {model | counter = newValue, clientId = clientId }, Cmd.none )
 
 
-view : Model -> Browser.Document FrontendMsg
+view : Model -> Html.Html FrontendMsg
 view model =
-    { title = ""
-    , body =
-        [ Html.div [ Attr.style "text-align" "center", Attr.style "padding-top" "40px" ]
-            [ Html.img [ Attr.src "https://lamdera.app/lamdera-logo-black.png", Attr.width 150 ] []
-            , Html.div
-                [ Attr.style "font-family" "sans-serif"
-                , Attr.style "padding-top" "40px"
-                ]
-                [ Html.text model.message ]
-            ]
+    Html.div [ Attr.style "padding" "30px" ]
+        [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+" ]
+        , Html.text (String.fromInt model.counter)
+        , Html.button [ Html.Events.onClick Decrement ] [ Html.text "-" ]
+        , Html.div [] [ Html.text "Click me then refresh me!" ]
         ]
-    }
